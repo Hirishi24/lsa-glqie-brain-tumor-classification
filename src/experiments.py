@@ -290,14 +290,20 @@ def run_experiment(data_dir: str | Path, output_dir: str | Path, cfg: dict[str, 
     table3 = _summarize_methods(fold_metrics, methods)[lambda d: d["metric"].str.contains("class_|small_|medium_|large_")]
     table4 = _summarize_methods(fold_metrics, methods)
     table5 = pd.DataFrame(
-        [{"experiment": "shot/noise/roi/context/budget robustness", "status": "completed in configured mode", "note": "Change-one-factor robustness is exposed through shots/noise CLI and summarized with the primary run resources."}]
+        [
+            {"analysis": "Shot robustness", "status": "not_run_in_primary_saved_outputs", "available_command": "python main.py --data-dir Dataset --output-dir results_shots --shots 128 --device cuda"},
+            {"analysis": "Effective noise", "status": "not_run_in_primary_saved_outputs", "available_command": "python main.py --data-dir Dataset --output-dir results_noise --noise-level 0.005 --device cuda"},
+            {"analysis": "ROI perturbation", "status": "not_run_in_primary_saved_outputs", "available_command": "requires rerun with ROI perturbation configuration"},
+            {"analysis": "Context margin", "status": "not_run_in_primary_saved_outputs", "available_command": "edit data.local_margin and rerun"},
+            {"analysis": "Coefficient budget", "status": "not_run_in_primary_saved_outputs", "available_command": "edit features.total_coefficients and quantum.reuploading_rounds and rerun"},
+        ]
     )
     stats = compare_methods(fold_metrics, "proposed_lsa_glqie", ["global_only", "local_only", "fixed_4g_4l", "random_allocation", "classical_proposed"], "patient_macro_f1", int(cfg["experiment"]["seeds"][0]), int(cfg["statistics"]["permutation_resamples"]))
     resources = pd.DataFrame([{"comparison": "logical_resources", "metric": "primary_circuit", "status": "ok", **logical_resource_counts(int(cfg["quantum"]["reuploading_rounds"]))}])
     table6 = pd.concat([stats, resources], ignore_index=True)
     for i, (name, table) in enumerate(zip(TABLE_NAMES, [table1, table2, table3, table4, table5, table6]), start=1):
         save_table(table, output, i, name)
-    plot_validation = create_all_figures(output, cfg, selected_with_sizes, fold_metrics, slice_predictions)
+    plot_validation = create_all_figures(output, cfg, selected_with_sizes, fold_metrics, patient_predictions, data_path)
     validation_report = validate_results(output)
     runtime = {"total_seconds": time.time() - start_time, "device": device, "validation": validation_report}
     with (output / "reproducibility" / "runtime_summary.json").open("w", encoding="utf-8") as f:

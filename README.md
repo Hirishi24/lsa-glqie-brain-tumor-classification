@@ -183,6 +183,16 @@ results/plots/data/
 
 These CSV files let you recreate the plots in a different style or tool without rerunning the experiment.
 
+To regenerate the final figures from an existing results folder:
+
+```bash
+python scripts/replot_saved_results.py \
+  --results-dir results \
+  --data-dir Dataset
+```
+
+The `--data-dir` argument is optional, but providing it lets Figure 1 use real MRI examples with mask overlays.
+
 The effective noise model is a feature-space perturbation and is not a hardware-accurate quantum noise channel. Lesion size may correlate with tumour class, so size-only and shuffled-allocation controls are included.
 
 ## Troubleshooting
