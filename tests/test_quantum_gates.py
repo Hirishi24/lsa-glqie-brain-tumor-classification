@@ -16,6 +16,5 @@ def test_ry_gate_unitarity():
 
 def test_cnot_norm_preservation():
     state = initial_state(2)
-    state = apply_cnot(state, 0, 1)
+    state = apply_cnot(state, 0, 1, num_qubits=6)
     validate_state(state)
-

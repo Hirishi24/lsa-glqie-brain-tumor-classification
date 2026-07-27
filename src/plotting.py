@@ -16,7 +16,9 @@ import pandas as pd
 from PIL import Image
 from sklearn.metrics import average_precision_score, confusion_matrix, precision_recall_curve, roc_auc_score, roc_curve
 
+from .allocation import allocation_profiles
 from .dataset_io import BrainTumorDataset, build_metadata
+from .quantum_simulator import logical_resource_counts
 
 
 FIGURE_NAMES = [
@@ -34,13 +36,15 @@ CLASS_NAMES = {1: "Meningioma", 2: "Glioma", 3: "Pituitary"}
 METHOD_NAMES = {
     "global_only": "Global only",
     "local_only": "Local only",
-    "fixed_2g_6l": "Fixed 2G+6L",
-    "fixed_4g_4l": "Fixed 4G+4L",
-    "fixed_6g_2l": "Fixed 6G+2L",
+    "fixed_2g_6l": "Fixed local-heavy",
+    "fixed_4g_4l": "Fixed balanced",
+    "fixed_6g_2l": "Fixed global-heavy",
     "random_allocation": "Random allocation",
     "proposed_lsa_glqie": "LSA-GLQIE",
-    "classical_proposed": "Classical LR",
-    "svm_classical_proposed": "Classical SVM",
+    "classical_proposed": "Classical LR LSA",
+    "classical_fixed_4g_4l": "Classical LR fixed",
+    "svm_classical_proposed": "Classical SVM LSA",
+    "svm_classical_fixed_4g_4l": "Classical SVM fixed",
     "lesion_size_only": "Size only",
     "shuffled_size_allocation": "Shuffled size",
 }
@@ -197,6 +201,12 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
     fs = (10.5, 6.8)
     title_size = cfg["plots"]["title_font_size"]
     label_size = cfg["plots"]["axis_font_size"]
+    total_coefficients = int(cfg["features"]["total_coefficients"])
+    num_qubits = int(cfg["quantum"]["num_qubits"])
+    rounds = int(cfg["quantum"]["reuploading_rounds"])
+    gate = str(cfg["quantum"]["encoding_gate"]).replace("_", "+")
+    profiles = allocation_profiles(total_coefficients)
+    measurements = num_qubits + (num_qubits * (num_qubits - 1)) // 2
     for number, name in enumerate(FIGURE_NAMES, start=1):
         fig, axes = plt.subplots(2, 2, figsize=fs, constrained_layout=True)
         axes = axes.ravel()
@@ -242,7 +252,7 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                     "workflow_nodes": pd.DataFrame(
                         {
                             "step_order": [1, 2, 3, 4, 5],
-                            "node": ["Full MRI / tumour mask", "Global and local DCT", "Lesion-size allocation", "Four-qubit encoder", "Classifier"],
+                            "node": ["Full MRI / tumour mask", "Global and local DCT", "Lesion-size allocation", f"{num_qubits}-qubit encoder", "Classifier"],
                         }
                     )
                 },
@@ -259,7 +269,7 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                 (4.4, 5.5, "Global\nDCT", PALETTE[0]),
                 (4.4, 3.3, "Local\nDCT", PALETTE[2]),
                 (8.0, 4.4, "Size-aware\nallocation", PALETTE[1]),
-                (12.0, 4.4, "8 fixed\nslots", PALETTE[3]),
+                (12.0, 4.4, f"{total_coefficients} fixed\nslots", PALETTE[3]),
             ]
             for x, y, text, color in nodes:
                 ax.text(x, y, text, ha="center", va="center", fontsize=box_font, bbox={"boxstyle": "round,pad=0.35", "fc": color, "ec": "white", "alpha": 0.9}, color="white")
@@ -272,8 +282,8 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             ax.set_ylim(0, 7)
             nodes = [
                 (1.6, 4.6, "Angles", PALETTE[3]),
-                (5.0, 4.6, "4-qubit\nRY map", PALETTE[4]),
-                (8.8, 4.6, "Z / ZZ\nfeatures", PALETTE[5]),
+                (5.0, 4.6, f"{num_qubits}-qubit\n{gate} map", PALETTE[4]),
+                (8.8, 4.6, f"{measurements} Z / ZZ\nfeatures", PALETTE[5]),
                 (12.3, 4.6, "Classifier", PALETTE[6]),
             ]
             for x, y, text, color in nodes:
@@ -283,7 +293,12 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             ax.set_title("Fixed Quantum Feature Map")
             axes[2].axis("off")
             axes[2].text(0.04, 0.78, "Fixed budget", fontsize=title_size, weight="bold")
-            axes[2].text(0.04, 0.5, "Every method uses eight input slots,\nfour qubits, two encoding rounds,\nand eight measurement features.", fontsize=label_size)
+            axes[2].text(
+                0.04,
+                0.5,
+                f"Every quantum method uses {total_coefficients} input slots,\n{num_qubits} qubits, {rounds} encoding rounds,\nand {measurements} measurement features.",
+                fontsize=label_size,
+            )
             axes[3].axis("off")
             axes[3].text(0.04, 0.78, "Evaluation", fontsize=title_size, weight="bold")
             axes[3].text(0.04, 0.5, "Patient-disjoint folds prevent leakage.\nPatient-level metrics are emphasized.", fontsize=label_size)
@@ -302,8 +317,8 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                     "allocation_mapping": pd.DataFrame(
                         {
                             "lesion_size": ["small", "medium", "large"],
-                            "global_coefficients": [2, 4, 6],
-                            "local_coefficients": [6, 4, 2],
+                            "global_coefficients": [profiles["small"][0], profiles["medium"][0], profiles["large"][0]],
+                            "local_coefficients": [profiles["small"][1], profiles["medium"][1], profiles["large"][1]],
                         }
                     ),
                 },
@@ -317,7 +332,18 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             _plot_barh(axes[1], _metric_summary(fold_metrics, metric).tail(10), "Mean Patient Macro F1" if number == 3 else "Allocation Ablation Macro F1", "Macro F1")
             axes[2].axis("off")
             axes[2].text(0.05, 0.84, "Allocation Rule", fontsize=title_size, weight="bold")
-            axes[2].text(0.05, 0.52, "Small lesion: 2 global + 6 local\nMedium lesion: 4 global + 4 local\nLarge lesion: 6 global + 2 local", fontsize=label_size, linespacing=1.35)
+            axes[2].text(
+                0.05,
+                0.52,
+                "Small lesion: "
+                f"{profiles['small'][0]} global + {profiles['small'][1]} local\n"
+                "Medium lesion: "
+                f"{profiles['medium'][0]} global + {profiles['medium'][1]} local\n"
+                "Large lesion: "
+                f"{profiles['large'][0]} global + {profiles['large'][1]} local",
+                fontsize=label_size,
+                linespacing=1.35,
+            )
             axes[3].hist(metadata.get("tumor_area_ratio", pd.Series([0])).dropna(), bins=30, color=PALETTE[1], alpha=0.85)
             axes[3].set_title("Tumour-Area Ratio Distribution")
             axes[3].set_xlabel("Tumour pixels / image pixels")
@@ -374,7 +400,13 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                 ax.tick_params(axis="x", rotation=15)
                 ax.legend(frameon=False)
         elif number == 7:
-            resource = pd.DataFrame({"quantity": ["Qubits", "RY gates", "CNOT gates", "Measurements", "Nominal depth"], "value": [4, 8, 8, 8, 4]})
+            counts = logical_resource_counts(rounds, num_qubits, str(cfg["quantum"]["encoding_gate"]))
+            resource = pd.DataFrame(
+                {
+                    "quantity": ["Qubits", "RY gates", "RZ gates", "CNOT gates", "Measurements", "Nominal depth"],
+                    "value": [counts["num_qubits"], counts["ry_gates"], counts["rz_gates"], counts["cnot_gates"], counts["measurements"], counts["nominal_depth"]],
+                }
+            )
             robustness_status = pd.DataFrame(
                 {
                     "analysis": ["Shot robustness", "Effective noise", "ROI perturbation", "Context margin", "Coefficient budget"],
