@@ -3,12 +3,16 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .venv/
-results/
+results/cache/
+results/models/
 results_smoke/
 results_quick/
 Dataset/
+dataset/
+[Dd]ataset/
 1512427.zip
 *.pdf
 *.joblib
 *.pt
 .DS_Store
+logs/

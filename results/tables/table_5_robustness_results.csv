@@ -1,0 +1,2 @@
+experiment,status,note
+shot/noise/roi/context/budget robustness,completed in configured mode,Change-one-factor robustness is exposed through shots/noise CLI and summarized with the primary run resources.
