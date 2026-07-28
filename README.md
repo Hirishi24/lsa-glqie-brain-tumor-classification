@@ -2,7 +2,7 @@
 
 Research code for **LSA-GLQIE: Lesion-Size-Aware Global-Local Quantum Image Encoding for Brain Tumour Classification Under a Fixed Encoding Budget**.
 
-This repository evaluates a fixed four-qubit feature-map strategy for three-class brain tumour classification. The contribution is the encoding strategy: a fixed budget of eight DCT coefficients is allocated between a global MRI view and a tumour-centred local view according to lesion size. The work does not claim quantum advantage. The circuit is a fixed feature map; only the downstream classical classifier is trained.
+This repository evaluates a fixed six-qubit feature-map strategy for three-class brain tumour classification. The contribution is the encoding strategy: a fixed budget of 12 DCT coefficients is allocated between a global MRI view and a tumour-centred local view according to lesion size. The work does not claim quantum advantage. The circuit is a fixed feature map; only the downstream classical classifier is trained.
 
 ## Dataset
 
@@ -56,12 +56,12 @@ Each image is preprocessed from the original numerical MRI array, not JPEG. The 
 Lesion size is measured by tumour-area ratio. Training-fold quantiles define small, medium and large lesions:
 
 ```text
-small:  2 global + 6 local
-medium: 4 global + 4 local
-large:  6 global + 2 local
+small:  3 global + 9 local
+medium: 6 global + 6 local
+large:  9 global + 3 local
 ```
 
-Every quantum method supplies exactly eight coefficients to the same circuit: four qubits, two RY reuploading rounds, ring CNOT entanglement after each round, and eight measurements: `<Z0>`, `<Z1>`, `<Z2>`, `<Z3>`, `<Z0Z1>`, `<Z1Z2>`, `<Z2Z3>`, `<Z3Z0>`.
+Every quantum method supplies exactly 12 coefficients to the same circuit: six qubits, two RY+RZ reuploading rounds, ring CNOT entanglement after each round, and 21 measurements: six single-qubit `<Zq>` expectations plus all pairwise `<ZaZb>` correlations. Classical LR/SVM controls are trained on the same lesion-aware or fixed 12-coefficient inputs, without the quantum feature map.
 
 Primary evaluation uses patient-disjoint grouped cross-validation. Slice-level samples are not statistically independent, so patient-level metrics are emphasized. The official `cvind.mat` folds are inspected for patient overlap and treated only as sensitivity metadata.
 
@@ -82,7 +82,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-GPU acceleration is optional. Four-qubit simulation is small; CUDA mainly helps batched simulation and PyTorch logistic regression.
+GPU acceleration is optional. Six-qubit state-vector simulation is still modest, but CUDA helps batched simulation and PyTorch logistic regression.
 
 On a Linux GPU server, use a CUDA-enabled PyTorch build. With conda, install PyTorch from the official `pytorch`/`nvidia` channels if your server CUDA stack requires a specific version. The code accepts `--device auto`, `--device cuda`, or `--device cpu`; `auto` uses CUDA when `torch.cuda.is_available()` is true.
 
@@ -182,6 +182,16 @@ results/plots/data/
 ```
 
 These CSV files let you recreate the plots in a different style or tool without rerunning the experiment.
+
+To regenerate the final figures from an existing results folder:
+
+```bash
+python scripts/replot_saved_results.py \
+  --results-dir results \
+  --data-dir Dataset
+```
+
+The `--data-dir` argument is optional, but providing it lets Figure 1 use real MRI examples with mask overlays.
 
 The effective noise model is a feature-space perturbation and is not a hardware-accurate quantum noise channel. Lesion size may correlate with tumour class, so size-only and shuffled-allocation controls are included.
 

@@ -24,15 +24,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "lesion_size": {
         "quantiles": [0.333333, 0.666667],
-        "allocation_small": [2, 6],
-        "allocation_medium": [4, 4],
-        "allocation_large": [6, 2],
+        "allocation_small": [3, 9],
+        "allocation_medium": [6, 6],
+        "allocation_large": [9, 3],
     },
-    "features": {"method": "dct", "total_coefficients": 8, "exclude_dc": True, "dct_zigzag": True, "robust_clip": 3.0},
+    "features": {"method": "dct", "total_coefficients": 12, "exclude_dc": True, "dct_zigzag": True, "robust_clip": 3.0},
     "quantum": {
-        "num_qubits": 4,
+        "num_qubits": 6,
         "reuploading_rounds": 2,
-        "encoding_gate": "RY",
+        "encoding_gate": "RY_RZ",
         "entanglement": "ring_cnot",
         "expectation_dtype": "float64",
         "state_dtype": "complex128",
@@ -109,4 +109,3 @@ def save_resolved_config(cfg: dict[str, Any], out_dir: Path) -> None:
         yaml.safe_dump(cfg, f, sort_keys=False)
     with (out_dir / "resolved_config.json").open("w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
-

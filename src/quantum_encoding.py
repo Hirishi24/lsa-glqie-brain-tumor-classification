@@ -23,15 +23,24 @@ def transform_robust(x: np.ndarray, scaler: dict[str, np.ndarray], clip: float =
     return (np.pi * np.tanh(scaled)).astype(np.float64)
 
 
-def quantum_features(angles: np.ndarray, device: str, batch_size: int, shots: int = 0, noise_level: float = 0.0, seed: int = 0, rounds: int = 2) -> np.ndarray:
+def quantum_features(
+    angles: np.ndarray,
+    device: str,
+    batch_size: int,
+    shots: int = 0,
+    noise_level: float = 0.0,
+    seed: int = 0,
+    rounds: int = 2,
+    num_qubits: int = 6,
+    gate: str = "RY_RZ",
+) -> np.ndarray:
     """Generate quantum expectation features in batches."""
     outputs = []
     with torch.no_grad():
         for start in range(0, len(angles), batch_size):
             batch = torch.as_tensor(angles[start : start + batch_size], dtype=torch.float64, device=device)
-            exp = encode_angles(batch, rounds=rounds)
+            exp = encode_angles(batch, rounds=rounds, num_qubits=num_qubits, gate=gate)
             exp = add_shot_noise(exp, shots, seed + start)
             exp = add_effective_noise(exp, noise_level, seed + start + 7919)
             outputs.append(exp.cpu().numpy())
     return np.vstack(outputs).astype(np.float64)
-
