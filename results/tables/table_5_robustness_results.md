@@ -1,3 +1,7 @@
-| experiment                               | status                       | note                                                                                                           |
-|:-----------------------------------------|:-----------------------------|:---------------------------------------------------------------------------------------------------------------|
-| shot/noise/roi/context/budget robustness | completed in configured mode | Change-one-factor robustness is exposed through shots/noise CLI and summarized with the primary run resources. |
+| analysis           | status                           | available_command                                                                              |
+|:-------------------|:---------------------------------|:-----------------------------------------------------------------------------------------------|
+| Shot robustness    | not_run_in_primary_saved_outputs | python main.py --data-dir Dataset --output-dir results_shots --shots 128 --device cuda         |
+| Effective noise    | not_run_in_primary_saved_outputs | python main.py --data-dir Dataset --output-dir results_noise --noise-level 0.005 --device cuda |
+| ROI perturbation   | not_run_in_primary_saved_outputs | requires rerun with ROI perturbation configuration                                             |
+| Context margin     | not_run_in_primary_saved_outputs | edit data.local_margin and rerun                                                               |
+| Coefficient budget | not_run_in_primary_saved_outputs | edit features.total_coefficients and quantum.reuploading_rounds and rerun                      |

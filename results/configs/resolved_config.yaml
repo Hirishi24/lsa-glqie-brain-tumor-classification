@@ -21,24 +21,24 @@ lesion_size:
   - 0.333333
   - 0.666667
   allocation_small:
-  - 2
-  - 6
+  - 3
+  - 9
   allocation_medium:
-  - 4
-  - 4
-  allocation_large:
   - 6
-  - 2
+  - 6
+  allocation_large:
+  - 9
+  - 3
 features:
   method: dct
-  total_coefficients: 8
+  total_coefficients: 12
   exclude_dc: true
   dct_zigzag: true
   robust_clip: 3.0
 quantum:
-  num_qubits: 4
+  num_qubits: 6
   reuploading_rounds: 2
-  encoding_gate: RY
+  encoding_gate: RY_RZ
   entanglement: ring_cnot
   expectation_dtype: float64
   state_dtype: complex128
