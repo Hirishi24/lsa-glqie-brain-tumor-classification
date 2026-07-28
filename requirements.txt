@@ -7,8 +7,9 @@ PyYAML
 Pillow
 h5py
 torch
+torchvision
 joblib
 tqdm
 pytest
 pyarrow
-
+tabulate

@@ -193,6 +193,24 @@ python scripts/replot_saved_results.py \
 
 The `--data-dir` argument is optional, but providing it lets Figure 1 use real MRI examples with mask overlays.
 
+## Hybrid Deep-Quantum Fusion
+
+For the stronger quantum direction, use pretrained CNN features first and apply quantum processing only to a compact learned embedding. This keeps the quantum component as a trainable fusion/decision head instead of using it directly on raw DCT coefficients.
+
+GPU run:
+
+```bash
+python scripts/train_deep_quantum_fusion.py \
+  --config config_deep_quantum.yaml \
+  --data-dir Dataset \
+  --output-dir results_deep_quantum \
+  --device cuda
+```
+
+The script extracts three frozen pretrained views per slice: full MRI, tumour-centred ROI, and peritumoral context. Their embeddings are concatenated with compact lesion-size/shape features, projected to quantum rotation angles, processed by a trainable variational quantum circuit, and evaluated with patient-disjoint folds. Outputs are saved under `results_deep_quantum/predictions`, `results_deep_quantum/tables`, `results_deep_quantum/plots`, `results_deep_quantum/models`, and `results_deep_quantum/reproducibility`.
+
+If the GPU server cannot download ImageNet weights, either preload the TorchVision cache or run with `--weights none` for code testing only.
+
 The effective noise model is a feature-space perturbation and is not a hardware-accurate quantum noise channel. Lesion size may correlate with tumour class, so size-only and shuffled-allocation controls are included.
 
 ## Troubleshooting

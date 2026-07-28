@@ -4,6 +4,7 @@ __pycache__/
 .mypy_cache/
 .venv/
 results/
+results_*/
 results_smoke/
 results_quick/
 PR_test/
