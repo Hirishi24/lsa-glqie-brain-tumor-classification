@@ -4,8 +4,8 @@ __pycache__/
 .mypy_cache/
 .venv/
 enter/
-results/cache/
-results/models/
+results/
+results_*/
 results_smoke/
 results_quick/
 PR_test/

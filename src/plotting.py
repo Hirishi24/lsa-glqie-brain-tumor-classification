@@ -41,6 +41,7 @@ METHOD_NAMES = {
     "fixed_6g_2l": "Fixed global-heavy",
     "random_allocation": "Random allocation",
     "proposed_lsa_glqie": "LSA-GLQIE",
+    "deep_quantum_fusion": "LSA-DQF",
     "classical_proposed": "Classical LR LSA",
     "classical_fixed_4g_4l": "Classical LR fixed",
     "svm_classical_proposed": "Classical SVM LSA",
@@ -149,10 +150,23 @@ def _overlay_mask(ax: plt.Axes, sample: dict[str, object], title: str) -> None:
     ax.set_yticks([])
 
 
-def _best_baseline(fold_metrics: pd.DataFrame) -> str:
-    candidates = [m for m in fold_metrics["method"].unique() if m != "proposed_lsa_glqie"]
-    if not candidates:
+def _primary_method(cfg: dict, fold_metrics: pd.DataFrame) -> str:
+    configured = cfg.get("plots", {}).get("primary_method")
+    if configured and configured in set(fold_metrics["method"].astype(str)):
+        return str(configured)
+    if "proposed_lsa_glqie" in set(fold_metrics["method"].astype(str)):
         return "proposed_lsa_glqie"
+    if not fold_metrics.empty:
+        metric = "patient_macro_f1" if "patient_macro_f1" in fold_metrics else "slice_macro_f1"
+        means = fold_metrics.groupby("method")[metric].mean()
+        return str(means.idxmax())
+    return "proposed_lsa_glqie"
+
+
+def _best_baseline(fold_metrics: pd.DataFrame, primary_method: str) -> str:
+    candidates = [m for m in fold_metrics["method"].unique() if m != primary_method]
+    if not candidates:
+        return primary_method
     metric = "patient_macro_f1" if "patient_macro_f1" in fold_metrics else "slice_macro_f1"
     means = fold_metrics[fold_metrics["method"].isin(candidates)].groupby("method")[metric].mean()
     return str(means.idxmax())
@@ -207,6 +221,10 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
     gate = str(cfg["quantum"]["encoding_gate"]).replace("_", "+")
     profiles = allocation_profiles(total_coefficients)
     measurements = num_qubits + (num_qubits * (num_qubits - 1)) // 2
+    primary_method = _primary_method(cfg, fold_metrics)
+    feature_top = cfg.get("plots", {}).get("workflow_feature_top", "Global\nDCT")
+    feature_bottom = cfg.get("plots", {}).get("workflow_feature_bottom", "Local\nDCT")
+    feature_node = cfg.get("plots", {}).get("workflow_feature_node", "Global and local DCT")
     for number, name in enumerate(FIGURE_NAMES, start=1):
         fig, axes = plt.subplots(2, 2, figsize=fs, constrained_layout=True)
         axes = axes.ravel()
@@ -252,7 +270,7 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                     "workflow_nodes": pd.DataFrame(
                         {
                             "step_order": [1, 2, 3, 4, 5],
-                            "node": ["Full MRI / tumour mask", "Global and local DCT", "Lesion-size allocation", f"{num_qubits}-qubit encoder", "Classifier"],
+                            "node": ["Full MRI / tumour mask", feature_node, "Lesion-size allocation", f"{num_qubits}-qubit encoder", "Classifier"],
                         }
                     )
                 },
@@ -266,8 +284,8 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             nodes = [
                 (1.4, 5.5, "Full\nMRI", PALETTE[0]),
                 (1.4, 3.3, "Tumour\nmask", PALETTE[2]),
-                (4.4, 5.5, "Global\nDCT", PALETTE[0]),
-                (4.4, 3.3, "Local\nDCT", PALETTE[2]),
+                (4.4, 5.5, feature_top, PALETTE[0]),
+                (4.4, 3.3, feature_bottom, PALETTE[2]),
                 (8.0, 4.4, "Size-aware\nallocation", PALETTE[1]),
                 (12.0, 4.4, f"{total_coefficients} fixed\nslots", PALETTE[3]),
             ]
@@ -364,12 +382,17 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
                 if metric in fold_metrics:
                     _plot_barh(axes[i], _metric_summary(fold_metrics, metric), titles[i], titles[i].split()[-1])
         elif number == 5:
-            proposed = predictions[predictions["method"] == "proposed_lsa_glqie"].copy()
-            best = _best_baseline(fold_metrics)
+            proposed = predictions[predictions["method"] == primary_method].copy()
+            best = _best_baseline(fold_metrics, primary_method)
             baseline = predictions[predictions["method"] == best].copy()
             per_class_cols = [c for c in fold_metrics.columns if c.startswith("patient_class_") and (c.endswith("_recall") or c.endswith("_f1"))]
-            proposed_cm = _plot_confusion(axes[0], predictions, "proposed_lsa_glqie", "LSA-GLQIE Patient Confusion")
-            baseline_cm = _plot_confusion(axes[1], predictions, best, f"{METHOD_NAMES.get(best, best)} Patient Confusion")
+            proposed_cm = _plot_confusion(axes[0], predictions, primary_method, f"{METHOD_NAMES.get(primary_method, primary_method)} Patient Confusion")
+            if best == primary_method:
+                axes[1].axis("off")
+                axes[1].text(0.04, 0.55, "No separate baseline predictions\nwere provided in this result set.", fontsize=label_size, va="center")
+                baseline_cm = pd.DataFrame()
+            else:
+                baseline_cm = _plot_confusion(axes[1], predictions, best, f"{METHOD_NAMES.get(best, best)} Patient Confusion")
             _write_plot_data(
                 output_dir,
                 number,
@@ -386,12 +409,17 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             f1_cols = [f"patient_class_{i}_f1" for i in [1, 2, 3] if f"patient_class_{i}_f1" in fold_metrics]
             for ax, cols, title in [(axes[2], recall_cols, "Per-Class Recall"), (axes[3], f1_cols, "Per-Class F1")]:
                 rows = []
-                for method in ["proposed_lsa_glqie", best]:
+                methods_to_plot = [primary_method] if best == primary_method else [primary_method, best]
+                for method in methods_to_plot:
                     means = fold_metrics[fold_metrics["method"] == method][cols].mean()
                     for col, val in means.items():
                         cls = int(col.split("_")[2])
                         rows.append({"method": METHOD_NAMES.get(method, method), "class": CLASS_NAMES[cls], "value": val})
                 df = pd.DataFrame(rows)
+                if df.empty:
+                    ax.axis("off")
+                    ax.text(0.04, 0.55, "Per-class metrics unavailable.", fontsize=label_size, va="center")
+                    continue
                 pivot = df.pivot(index="class", columns="method", values="value")
                 pivot.plot(kind="bar", ax=ax, color=PALETTE[: len(pivot.columns)])
                 ax.set_title(title)
@@ -433,7 +461,7 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             status_text = "\n".join(f"{row.analysis}: {row.status}" for row in robustness_status.itertuples())
             axes[3].text(0.02, 0.8, status_text, fontsize=label_size, va="top")
         else:
-            method = "proposed_lsa_glqie"
+            method = primary_method
             roc_df, pr_df, rocpr_summary = _roc_pr_data(predictions, method)
             _write_plot_data(
                 output_dir,
@@ -452,13 +480,13 @@ def create_all_figures(output_dir: Path, cfg: dict, metadata: pd.DataFrame, fold
             for cls, group in roc_df.groupby("class_name"):
                 axes[0].plot(group["fpr"], group["tpr"], linewidth=2.0, label=cls)
             axes[0].plot([0, 1], [0, 1], color="#666666", linestyle="--", linewidth=1.2)
-            axes[0].set_title("LSA-GLQIE ROC Curves")
+            axes[0].set_title(f"{METHOD_NAMES.get(method, method)} ROC Curves")
             axes[0].set_xlabel("False positive rate")
             axes[0].set_ylabel("True positive rate")
             axes[0].legend(frameon=False)
             for cls, group in pr_df.groupby("class_name"):
                 axes[1].plot(group["recall"], group["precision"], linewidth=2.0, label=cls)
-            axes[1].set_title("LSA-GLQIE Precision-Recall")
+            axes[1].set_title(f"{METHOD_NAMES.get(method, method)} Precision-Recall")
             axes[1].set_xlabel("Recall")
             axes[1].set_ylabel("Precision")
             axes[1].legend(frameon=False)
