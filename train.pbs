@@ -42,11 +42,10 @@ echo "--------------------------------"
 
 # 4. Run the experiment
 # Modify --device to cpu if you did not request a GPU partition
-python main.py \
+python scripts/train_deep_quantum_fusion.py \
+  --config "config_deep_quantum.yaml" \
   --data-dir "Dataset" \
-  --output-dir "results" \
-  --config "config.yaml" \
-  --device cuda \
-  --batch-size 512
+  --output-dir "results_deep_quantum" \
+  --device cuda
 
 echo "Job finished successfully."
