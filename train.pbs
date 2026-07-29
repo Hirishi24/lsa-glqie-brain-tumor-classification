@@ -2,8 +2,8 @@
 #PBS -N lsa-glqie-train
 #PBS -o logs/job.out
 #PBS -e logs/job.err
-#PBS -q gpu
-#PBS -l select=1:ncpus=1:ngpus=1:mem=32gb
+#PBS -q short
+#PBS -l select=1:ncpus=4:mem=32gb
 #PBS -l walltime=12:00:00
 
 # Exit on any error
@@ -46,6 +46,6 @@ python scripts/train_deep_quantum_fusion.py \
   --config "config_deep_quantum.yaml" \
   --data-dir "Dataset" \
   --output-dir "results_deep_quantum" \
-  --device cuda
+  --device cpu
 
 echo "Job finished successfully."
